@@ -7,6 +7,7 @@
 #include <imm.h>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 #pragma comment(lib, "imm32.lib")
 
@@ -350,15 +351,38 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
     // カーソル移動とその他のキー処理
     if (m_pEditController && m_pDocument)
     {
+        bool isShiftPressed = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         switch (wParam)
         {
         case VK_LEFT:
-            m_pEditController->MoveCursor(-1, 0, m_pDocument.get());
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                size_t lineLen = m_pDocument->GetLine(cur.line).length();
+                size_t newCol = (cur.column > 0) ? (cur.column - 1) : 0;
+                m_pEditController->SelectToPosition(TextPosition(cur.line, newCol), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveCursor(-1, 0, m_pDocument.get());
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 
         case VK_RIGHT:
-            m_pEditController->MoveCursor(1, 0, m_pDocument.get());
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                size_t lineLen = m_pDocument->GetLine(cur.line).length();
+                size_t newCol = std::min(cur.column + 1, lineLen);
+                m_pEditController->SelectToPosition(TextPosition(cur.line, newCol), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveCursor(1, 0, m_pDocument.get());
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 

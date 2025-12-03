@@ -1,3 +1,5 @@
+[![CI](https://github.com/YosAwed/Awedit/actions/workflows/ci.yml/badge.svg)](https://github.com/YosAwed/Awedit/actions/workflows/ci.yml)
+
 # 高機能テキストエディタ
 
 Win32APIとC++で作られた高性能テキストエディタです。DirectWriteによる美しいレンダリングと、多彩な編集機能を備えています。
@@ -212,3 +214,4 @@ Win32API & C++テキストエディタプロジェクト
 - [Microsoft DirectWrite Documentation](https://docs.microsoft.com/en-us/windows/win32/directwrite/direct-write-portal)
 - [Win32 API Documentation](https://docs.microsoft.com/en-us/windows/win32/api/)
 - [C++ Standard Library](https://en.cppreference.com/w/)
+

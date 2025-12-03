@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Debug x64
+        run: msbuild TextEditor.sln /p:Configuration=Debug /p:Platform=x64 /m
+
+      - name: Build Release x64
+        run: msbuild TextEditor.sln /p:Configuration=Release /p:Platform=x64 /m
+
+      - name: Upload Debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Awedit-Debug-x64
+          path: |
+            TextEditor/x64/Debug/Awedit.exe
+
+      - name: Upload Release artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Awedit-Release-x64
+          path: |
+            TextEditor/x64/Release/Awedit.exe
+

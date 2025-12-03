@@ -55,6 +55,7 @@ private:
     void OnHelpAbout();
     void OnHelpContents();
     void UpdateFontSizeMenuCheck(UINT id);
+    void UpdateWindowTitle();
 
     HWND m_hwnd;
     HINSTANCE m_hInstance;

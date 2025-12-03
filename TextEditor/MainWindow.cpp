@@ -230,6 +230,9 @@ void CMainWindow::OnCreate()
             DrawMenuBar(m_hwnd);
         }
     }
+
+    // 初期タイトル更新
+    UpdateWindowTitle();
 }
 
 void CMainWindow::OnDestroy()
@@ -454,18 +457,21 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
             m_pEditController->DeleteChar(m_pDocument.get(), false);
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
+            UpdateWindowTitle();
             break;
 
         case VK_DELETE:
             m_pEditController->DeleteChar(m_pDocument.get(), true);
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
+            UpdateWindowTitle();
             break;
 
         case VK_RETURN:
             m_pEditController->InsertChar(m_pDocument.get(), L'\n');
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
+            UpdateWindowTitle();
             break;
         }
     }
@@ -487,6 +493,7 @@ void CMainWindow::OnChar(WPARAM wParam)
         m_pEditController->InsertChar(m_pDocument.get(), ch);
         m_isModified = true;
         InvalidateRect(m_hwnd, NULL, FALSE);
+        UpdateWindowTitle();
     }
 }
 
@@ -567,6 +574,7 @@ void CMainWindow::OnFileNew()
         m_currentFilePath.clear();
         m_isModified = false;
         InvalidateRect(m_hwnd, NULL, TRUE);
+        UpdateWindowTitle();
     }
 }
 
@@ -590,6 +598,7 @@ void CMainWindow::OnFileOpen()
             m_currentFilePath = fileName;
             m_isModified = false;
             InvalidateRect(m_hwnd, NULL, TRUE);
+            UpdateWindowTitle();
         }
         else
         {
@@ -609,6 +618,7 @@ void CMainWindow::OnFileSave()
         if (m_pDocument->SaveToFile(m_currentFilePath.c_str()))
         {
             m_isModified = false;
+            UpdateWindowTitle();
         }
         else
         {
@@ -636,6 +646,7 @@ void CMainWindow::OnFileSaveAs()
         {
             m_currentFilePath = fileName;
             m_isModified = false;
+            UpdateWindowTitle();
         }
         else
         {
@@ -668,7 +679,9 @@ void CMainWindow::OnEditCut()
     if (m_pEditController && m_pDocument)
     {
         m_pEditController->DeleteSelection(m_pDocument.get());
+        m_isModified = true;
         InvalidateRect(m_hwnd, NULL, TRUE);
+        UpdateWindowTitle();
     }
 }
 
@@ -707,7 +720,9 @@ void CMainWindow::OnEditPaste()
             if (pText && m_pEditController && m_pDocument)
             {
                 m_pEditController->InsertText(m_pDocument.get(), pText);
+                m_isModified = true;
                 InvalidateRect(m_hwnd, NULL, TRUE);
+                UpdateWindowTitle();
             }
             GlobalUnlock(hData);
         }
@@ -833,6 +848,7 @@ void CMainWindow::OnImeComposition(LPARAM lParam)
                 m_pEditController->InsertText(m_pDocument.get(), resultStr);
                 m_isModified = true;
                 InvalidateRect(m_hwnd, NULL, FALSE);
+                UpdateWindowTitle();
             }
         }
         // 未確定情報クリア
@@ -893,3 +909,23 @@ void CMainWindow::UpdateImePosition()
     ImmReleaseContext(m_hwnd, hIMC);
 }
 
+void CMainWindow::UpdateWindowTitle()
+{
+    std::wstring name;
+    if (m_currentFilePath.empty())
+    {
+        name = L"無題";
+    }
+    else
+    {
+        size_t pos = m_currentFilePath.find_last_of(L"\\/");
+        name = (pos == std::wstring::npos) ? m_currentFilePath : m_currentFilePath.substr(pos + 1);
+    }
+
+    std::wstring title = L"Awedit - " + name;
+    if (m_isModified)
+    {
+        title += L"*";
+    }
+    SetWindowText(m_hwnd, title.c_str());
+}

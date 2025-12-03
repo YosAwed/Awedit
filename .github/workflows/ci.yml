@@ -18,10 +18,10 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build Debug x64
-        run: msbuild TextEditor.sln /p:Configuration=Debug /p:Platform=x64 /m
+        run: msbuild Awedit.sln /p:Configuration=Debug /p:Platform=x64 /m
 
       - name: Build Release x64
-        run: msbuild TextEditor.sln /p:Configuration=Release /p:Platform=x64 /m
+        run: msbuild Awedit.sln /p:Configuration=Release /p:Platform=x64 /m
 
       - name: Upload Debug artifact
         if: always()
@@ -38,4 +38,3 @@ jobs:
           name: Awedit-Release-x64
           path: |
             TextEditor/x64/Release/Awedit.exe
-

@@ -80,7 +80,7 @@ Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
 Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
-msbuild TextEditor.sln /p:Configuration=Release /p:Platform=x64
+msbuild Awedit.sln /p:Configuration=Release /p:Platform=x64
 ```
 
 # Awedit
@@ -373,4 +373,5 @@ Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
 - Debug: TextEditor/x64/Debug/Awedit.exe
 - Release: TextEditor/x64/Release/Awedit.exe
+
 

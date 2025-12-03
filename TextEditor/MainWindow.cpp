@@ -387,22 +387,66 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
             break;
 
         case VK_UP:
-            m_pEditController->MoveCursor(0, -1, m_pDocument.get());
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                size_t newLine = (cur.line > 0) ? (cur.line - 1) : 0;
+                size_t lineLen = m_pDocument->GetLine(newLine).length();
+                size_t newCol = std::min(cur.column, lineLen);
+                m_pEditController->SelectToPosition(TextPosition(newLine, newCol), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveCursor(0, -1, m_pDocument.get());
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 
         case VK_DOWN:
-            m_pEditController->MoveCursor(0, 1, m_pDocument.get());
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                size_t maxLine = m_pDocument->GetLineCount() ? (m_pDocument->GetLineCount() - 1) : 0;
+                size_t newLine = std::min(cur.line + 1, maxLine);
+                size_t lineLen = m_pDocument->GetLine(newLine).length();
+                size_t newCol = std::min(cur.column, lineLen);
+                m_pEditController->SelectToPosition(TextPosition(newLine, newCol), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveCursor(0, 1, m_pDocument.get());
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 
         case VK_HOME:
-            m_pEditController->MoveToLineStart();
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                m_pEditController->SelectToPosition(TextPosition(cur.line, 0), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveToLineStart();
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 
         case VK_END:
-            m_pEditController->MoveToLineEnd(m_pDocument.get());
+            if (isShiftPressed)
+            {
+                const auto& cursors = m_pEditController->GetCursors();
+                TextPosition cur = cursors.empty() ? TextPosition(0, 0) : cursors[0];
+                size_t lineLen = m_pDocument->GetLine(cur.line).length();
+                m_pEditController->SelectToPosition(TextPosition(cur.line, lineLen), m_pDocument.get());
+            }
+            else
+            {
+                m_pEditController->MoveToLineEnd(m_pDocument.get());
+            }
             InvalidateRect(m_hwnd, NULL, FALSE);
             break;
 

@@ -65,7 +65,7 @@ Windows 向け C++/DirectWrite ベースのテキストエディタ。
 Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
 
-1. `TextEditor.sln` をVisual Studioで開く
+1. `Awedit.sln` をVisual Studioで開く
 2. ビルド構成を選択（Debug または Release）
 3. プラットフォームを選択（x86 または x64）
 4. メニューから「ビルド」→「ソリューションのビルド」を選択
@@ -147,7 +147,7 @@ Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
 ```
 TextEditor/
-├── TextEditor.sln              # Awedit
+├── Awedit.sln              # Awedit
 
 Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
@@ -373,5 +373,6 @@ Windows 向け C++/DirectWrite ベースのテキストエディタ。
 
 - Debug: TextEditor/x64/Debug/Awedit.exe
 - Release: TextEditor/x64/Release/Awedit.exe
+
 
 

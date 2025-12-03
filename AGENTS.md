@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - Source: `TextEditor/` (`Main.cpp`, `MainWindow.*`, `TextDocument.*`, `TextRenderer.*`, `EditController.*`, `SearchEngine.*`, `UndoManager.*`, `KeyboardHandler.*`, `Resource.*`).
 - Solution: `TextEditor.sln` (open in Visual Studio).
-- Binaries: `TextEditor/x64/{Debug,Release}/TextEditor.exe` (x86 variants if configured).
+- Binaries: `TextEditor/x64/{Debug,Release}/Awedit.exe` (x86 variants if configured).
 - Assets: `Resource.rc`, `Resource.h`, optional `icon.ico` (see `icon_placeholder.txt`).
 
 ## Build, Test, and Development Commands
@@ -11,7 +11,7 @@
 - CLI (Developer Command Prompt):
   - Debug x64: `msbuild TextEditor.sln /p:Configuration=Debug /p:Platform=x64`
   - Release x64: `msbuild TextEditor.sln /p:Configuration=Release /p:Platform=x64`
-- Run: `TextEditor/x64/Debug/TextEditor.exe` (or `Release`).
+- Run: `TextEditor/x64/Debug/Awedit.exe` (or `Release`).
 
 ## Coding Style & Naming Conventions
 - Language: C++17; Windows SDK 10+; Visual Studio 2019+.
@@ -35,3 +35,4 @@
 - Ensure Windows SDK and toolset installed; set C++ standard to C++17 in project settings.
 - Avoid blocking UI thread with long I/O; large files use memory‑mapped I/O—do not copy entire buffers.
 - Prefer secure `_s` variants or STL for file/string ops when applicable.
+

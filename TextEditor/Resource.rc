@@ -1,0 +1,73 @@
+// Resource.rc - リソーススクリプト
+#pragma code_page(65001)  // UTF-8
+#include <windows.h>
+
+// メニュー
+#define IDR_MAINMENU                    102
+
+// メニューアイテム - ファイル
+#define ID_FILE_NEW                     1001
+#define ID_FILE_OPEN                    1002
+#define ID_FILE_SAVE                    1003
+#define ID_FILE_SAVEAS                  1004
+#define ID_FILE_EXIT                    1005
+
+// メニューアイテム - 編集
+#define ID_EDIT_UNDO                    2001
+#define ID_EDIT_REDO                    2002
+#define ID_EDIT_CUT                     2003
+#define ID_EDIT_COPY                    2004
+#define ID_EDIT_PASTE                   2005
+#define ID_EDIT_SELECTALL               2006
+
+// メニューアイテム - 検索
+#define ID_SEARCH_FIND                  3001
+#define ID_SEARCH_REPLACE               3002
+#define ID_SEARCH_FINDNEXT              3003
+#define ID_SEARCH_FINDPREVIOUS          3004
+
+// メニューアイテム - ヘルプ
+#define ID_HELP_CONTENTS                4001
+#define ID_HELP_ABOUT                   4002
+
+// メニュー定義
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "ファイル(&F)"
+    BEGIN
+        MENUITEM "新規作成(&N)\tCtrl+N", ID_FILE_NEW
+        MENUITEM "開く(&O)...\tCtrl+O", ID_FILE_OPEN
+        MENUITEM "保存(&S)\tCtrl+S", ID_FILE_SAVE
+        MENUITEM "名前を付けて保存(&A)...", ID_FILE_SAVEAS
+        MENUITEM SEPARATOR
+        MENUITEM "終了(&X)", ID_FILE_EXIT
+    END
+    POPUP "編集(&E)"
+    BEGIN
+        MENUITEM "元に戻す(&U)\tCtrl+Z", ID_EDIT_UNDO
+        MENUITEM "やり直し(&R)\tCtrl+Y", ID_EDIT_REDO
+        MENUITEM SEPARATOR
+        MENUITEM "切り取り(&T)\tCtrl+X", ID_EDIT_CUT
+        MENUITEM "コピー(&C)\tCtrl+C", ID_EDIT_COPY
+        MENUITEM "貼り付け(&P)\tCtrl+V", ID_EDIT_PASTE
+        MENUITEM SEPARATOR
+        MENUITEM "すべて選択(&A)\tCtrl+A", ID_EDIT_SELECTALL
+    END
+    POPUP "検索(&S)"
+    BEGIN
+        MENUITEM "検索(&F)...\tCtrl+F", ID_SEARCH_FIND
+        MENUITEM "置換(&R)...\tCtrl+H", ID_SEARCH_REPLACE
+        MENUITEM SEPARATOR
+        MENUITEM "次を検索(&N)\tF3", ID_SEARCH_FINDNEXT
+        MENUITEM "前を検索(&P)\tShift+F3", ID_SEARCH_FINDPREVIOUS
+    END
+    POPUP "ヘルプ(&H)"
+    BEGIN
+        MENUITEM "ヘルプ(&H)\tF1", ID_HELP_CONTENTS
+        MENUITEM SEPARATOR
+        MENUITEM "バージョン情報(&A)...", ID_HELP_ABOUT
+    END
+END
+
+// アイコン（実際のアイコンファイルがない場合はデフォルト）
+// IDI_APPLICATION ICON "icon.ico"

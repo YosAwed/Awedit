@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(msbuild:*)",
+      "Bash(where:*)",
+      "Bash(if exist \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe\" echo Community)",
+      "Bash(if exist \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe\" echo Professional)",
+      "Bash(if exist \"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe\" echo Enterprise)",
+      "Bash(\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\" TextEditorTextEditor.vcxproj /t:Rebuild /p:Configuration=Release /p:Platform=x64)",
+      "Bash(\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\" TextEditorTextEditor.vcxproj /target:Rebuild /property:Configuration=Release /property:Platform=x64)",
+      "Bash(cmd /c \"dir TextEditor /b\")",
+      "Bash(cmd /c \"cd && dir /b\")",
+      "Bash(\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\" \"E:\\Document\\Awedit\\TextEditor\\TextEditor\\TextEditor.vcxproj\" /t:Rebuild /p:Configuration=Release /p:Platform=x64)",
+      "Bash(cmd /c \"\"\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\"\" \"\"E:\\Document\\Awedit\\TextEditor\\TextEditor\\TextEditor.vcxproj\"\" /t:Rebuild /p:Configuration=Release /p:Platform=x64\")",
+      "Bash(\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe\" TextEditor.vcxproj /t:Rebuild /p:Configuration=Release /p:Platform=x64)",
+      "Bash(cmd /c \"E:\\Document\\Awedit\\TextEditor\\build_temp.bat\")",
+      "Bash(\"E:\\Document\\Awedit\\TextEditor\\build_temp.bat\")",
+      "Bash(cmd /c \"del E:\\Document\\Awedit\\TextEditor\\build_temp.bat\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,36 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+[Bb]in/
+[Oo]bj/
+Debug/
+Release/
+*.VC.db
+*.VC.VC.opendb
+ipch/
+*.opendb
+*.log
+
+# Project specifics
+TextEditor/x64/
+x64/
+*.ilk
+*.pdb
+*.obj
+*.exe
+*.idb
+
+# OS junk
+Thumbs.db
+Desktop.ini
+
+# Tools
+*.cache
+
+nul
+

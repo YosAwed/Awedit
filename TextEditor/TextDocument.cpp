@@ -6,6 +6,31 @@
 #include <vector>
 #include <cstring>
 
+// --- Encoding helpers (save) ---
+static bool ConvertWideToUtf8(const std::wstring& text, std::string& out)
+{
+    out.clear();
+    if (text.empty())
+    {
+        out = "";
+        return true;
+    }
+
+    int needed = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), NULL, 0, NULL, NULL);
+    if (needed <= 0)
+    {
+        return false;
+    }
+    out.resize(static_cast<size_t>(needed));
+    int written = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), &out[0], needed, NULL, NULL);
+    if (written <= 0)
+    {
+        out.clear();
+        return false;
+    }
+    return true;
+}
+
 // --- Encoding helpers ---
 static bool TryConvertMultiByte(int codePage, DWORD flags, const char* bytes, int byteLen, std::wstring& out)
 {
@@ -276,23 +301,45 @@ void CTextDocument::SplitIntoLines(const std::wstring& text)
 
 bool CTextDocument::SaveToFile(const wchar_t* filePath)
 {
-    std::wofstream file(filePath, std::ios::binary);
+    std::ofstream file(filePath, std::ios::binary);
     if (!file.is_open())
     {
         return false;
     }
 
     // BOMを書き込み
-    wchar_t bom = 0xFEFF;
-    file.write(&bom, 1);
+    const unsigned char bom[3] = { 0xEF, 0xBB, 0xBF };
+    file.write(reinterpret_cast<const char*>(bom), 3);
+    if (!file)
+    {
+        return false;
+    }
 
     // 各行を書き込み
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        file << m_lines[i];
+        {
+            std::string utf8;
+            if (!ConvertWideToUtf8(m_lines[i], utf8))
+            {
+                return false;
+            }
+            if (!utf8.empty())
+            {
+                file.write(utf8.data(), static_cast<std::streamsize>(utf8.size()));
+                if (!file)
+                {
+                    return false;
+                }
+            }
+        }
         if (i < m_lines.size() - 1)
         {
-            file << L"\r\n";
+            file.write("\r\n", 2);
+            if (!file)
+            {
+                return false;
+            }
         }
     }
 

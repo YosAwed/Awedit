@@ -72,6 +72,56 @@ END
 // アイコン（実際のアイコンファイルがない場合はデフォルト）
 // IDI_APPLICATION ICON "icon.ico"
 
+// ダイアログID（Resource.hと一致）
+#define IDD_SEARCH_DIALOG               6001
+#define IDD_REPLACE_DIALOG              6002
+#define IDC_SEARCH_TEXT                 6101
+#define IDC_REPLACE_TEXT                6102
+#define IDC_CHECK_CASE                  6103
+#define IDC_CHECK_WHOLEWORD             6104
+#define IDC_CHECK_REGEX                 6105
+#define IDC_BTN_FINDNEXT                6106
+#define IDC_BTN_FINDPREV                6107
+#define IDC_BTN_REPLACE                 6108
+#define IDC_BTN_REPLACEALL              6109
+#define IDC_STATIC_SEARCHLABEL          6110
+#define IDC_STATIC_REPLACELABEL         6111
+
+// 検索ダイアログ
+IDD_SEARCH_DIALOG DIALOGEX 0, 0, 280, 95
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "検索"
+FONT 9, "Yu Gothic UI", 400, 0, 0x80
+BEGIN
+    LTEXT           "検索する文字列(&N):", IDC_STATIC_SEARCHLABEL, 7, 10, 70, 8
+    EDITTEXT        IDC_SEARCH_TEXT, 80, 7, 130, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "次を検索(&F)", IDC_BTN_FINDNEXT, 218, 7, 55, 14
+    PUSHBUTTON      "前を検索(&P)", IDC_BTN_FINDPREV, 218, 24, 55, 14
+    CONTROL         "大文字と小文字を区別(&C)", IDC_CHECK_CASE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 30, 100, 10
+    CONTROL         "単語単位で検索(&W)", IDC_CHECK_WHOLEWORD, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 45, 85, 10
+    CONTROL         "正規表現(&E)", IDC_CHECK_REGEX, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 60, 60, 10
+    PUSHBUTTON      "閉じる", IDCANCEL, 218, 74, 55, 14
+END
+
+// 置換ダイアログ
+IDD_REPLACE_DIALOG DIALOGEX 0, 0, 280, 120
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "置換"
+FONT 9, "Yu Gothic UI", 400, 0, 0x80
+BEGIN
+    LTEXT           "検索する文字列(&N):", IDC_STATIC_SEARCHLABEL, 7, 10, 70, 8
+    EDITTEXT        IDC_SEARCH_TEXT, 80, 7, 130, 14, ES_AUTOHSCROLL
+    LTEXT           "置換後の文字列(&P):", IDC_STATIC_REPLACELABEL, 7, 28, 70, 8
+    EDITTEXT        IDC_REPLACE_TEXT, 80, 25, 130, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "次を検索(&F)", IDC_BTN_FINDNEXT, 218, 7, 55, 14
+    PUSHBUTTON      "置換(&R)", IDC_BTN_REPLACE, 218, 24, 55, 14
+    PUSHBUTTON      "すべて置換(&A)", IDC_BTN_REPLACEALL, 218, 41, 55, 14
+    CONTROL         "大文字と小文字を区別(&C)", IDC_CHECK_CASE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 50, 100, 10
+    CONTROL         "単語単位で検索(&W)", IDC_CHECK_WHOLEWORD, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 65, 85, 10
+    CONTROL         "正規表現(&E)", IDC_CHECK_REGEX, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 7, 80, 60, 10
+    PUSHBUTTON      "閉じる", IDCANCEL, 218, 99, 55, 14
+END
+
 // Version information
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 1,0,0,0

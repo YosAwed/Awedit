@@ -8,6 +8,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cwctype>
 
 #pragma comment(lib, "imm32.lib")
 
@@ -18,6 +19,8 @@ CMainWindow::CMainWindow()
     , m_hInstance(nullptr)
     , m_isModified(false)
     , m_isRectSelectionMode(false)
+    , m_hSearchDlg(nullptr)
+    , m_hReplaceDlg(nullptr)
 {
 }
 
@@ -305,6 +308,12 @@ void CMainWindow::OnCommand(WPARAM wParam)
         break;
     case ID_SEARCH_REPLACE:
         OnSearchReplace();
+        break;
+    case ID_SEARCH_FINDNEXT:
+        OnSearchFindNext();
+        break;
+    case ID_SEARCH_FINDPREVIOUS:
+        OnSearchFindPrevious();
         break;
     case ID_HELP_CONTENTS:
         OnHelpContents();
@@ -741,17 +750,396 @@ void CMainWindow::OnEditSelectAll()
 
 void CMainWindow::OnSearchFind()
 {
-    MessageBox(m_hwnd, L"検索機能は実装中です。", L"情報", MB_OK | MB_ICONINFORMATION);
+    // 既存の置換ダイアログを閉じる
+    if (m_hReplaceDlg)
+    {
+        DestroyWindow(m_hReplaceDlg);
+        m_hReplaceDlg = nullptr;
+    }
+
+    // 検索ダイアログが既に開いている場合はフォーカスを移す
+    if (m_hSearchDlg)
+    {
+        SetFocus(GetDlgItem(m_hSearchDlg, IDC_SEARCH_TEXT));
+        return;
+    }
+
+    // モードレスダイアログとして作成
+    m_hSearchDlg = CreateDialogParam(
+        m_hInstance,
+        MAKEINTRESOURCE(IDD_SEARCH_DIALOG),
+        m_hwnd,
+        SearchDialogProc,
+        reinterpret_cast<LPARAM>(this)
+    );
+
+    if (m_hSearchDlg)
+    {
+        ShowWindow(m_hSearchDlg, SW_SHOW);
+    }
 }
 
 void CMainWindow::OnSearchReplace()
 {
-    MessageBox(m_hwnd, L"置換機能は実装中です。", L"情報", MB_OK | MB_ICONINFORMATION);
+    // 既存の検索ダイアログを閉じる
+    if (m_hSearchDlg)
+    {
+        DestroyWindow(m_hSearchDlg);
+        m_hSearchDlg = nullptr;
+    }
+
+    // 置換ダイアログが既に開いている場合はフォーカスを移す
+    if (m_hReplaceDlg)
+    {
+        SetFocus(GetDlgItem(m_hReplaceDlg, IDC_SEARCH_TEXT));
+        return;
+    }
+
+    // モードレスダイアログとして作成
+    m_hReplaceDlg = CreateDialogParam(
+        m_hInstance,
+        MAKEINTRESOURCE(IDD_REPLACE_DIALOG),
+        m_hwnd,
+        ReplaceDialogProc,
+        reinterpret_cast<LPARAM>(this)
+    );
+
+    if (m_hReplaceDlg)
+    {
+        ShowWindow(m_hReplaceDlg, SW_SHOW);
+    }
+}
+
+void CMainWindow::OnSearchFindNext()
+{
+    if (m_searchText.empty())
+    {
+        OnSearchFind();
+        return;
+    }
+    DoFindNext();
+}
+
+void CMainWindow::OnSearchFindPrevious()
+{
+    if (m_searchText.empty())
+    {
+        OnSearchFind();
+        return;
+    }
+    DoFindPrevious();
+}
+
+INT_PTR CALLBACK CMainWindow::SearchDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static CMainWindow* pThis = nullptr;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        pThis = reinterpret_cast<CMainWindow*>(lParam);
+        // 前回の検索文字列を設定
+        SetDlgItemText(hDlg, IDC_SEARCH_TEXT, pThis->m_searchText.c_str());
+        // オプションを設定
+        {
+            const SearchOptions& options = pThis->m_pSearchEngine->GetOptions();
+            CheckDlgButton(hDlg, IDC_CHECK_CASE, options.caseSensitive ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_CHECK_WHOLEWORD, options.wholeWord ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_CHECK_REGEX, options.useRegex ? BST_CHECKED : BST_UNCHECKED);
+        }
+        return TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDC_BTN_FINDNEXT:
+            if (pThis)
+            {
+                wchar_t buffer[1024] = {};
+                GetDlgItemText(hDlg, IDC_SEARCH_TEXT, buffer, 1024);
+                pThis->m_searchText = buffer;
+                pThis->UpdateSearchOptions(hDlg);
+                pThis->DoFindNext();
+            }
+            return TRUE;
+
+        case IDC_BTN_FINDPREV:
+            if (pThis)
+            {
+                wchar_t buffer[1024] = {};
+                GetDlgItemText(hDlg, IDC_SEARCH_TEXT, buffer, 1024);
+                pThis->m_searchText = buffer;
+                pThis->UpdateSearchOptions(hDlg);
+                pThis->DoFindPrevious();
+            }
+            return TRUE;
+
+        case IDCANCEL:
+            if (pThis)
+            {
+                pThis->m_hSearchDlg = nullptr;
+            }
+            DestroyWindow(hDlg);
+            return TRUE;
+        }
+        break;
+
+    case WM_CLOSE:
+        if (pThis)
+        {
+            pThis->m_hSearchDlg = nullptr;
+        }
+        DestroyWindow(hDlg);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+INT_PTR CALLBACK CMainWindow::ReplaceDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static CMainWindow* pThis = nullptr;
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        pThis = reinterpret_cast<CMainWindow*>(lParam);
+        // 前回の検索/置換文字列を設定
+        SetDlgItemText(hDlg, IDC_SEARCH_TEXT, pThis->m_searchText.c_str());
+        SetDlgItemText(hDlg, IDC_REPLACE_TEXT, pThis->m_replaceText.c_str());
+        // オプションを設定
+        {
+            const SearchOptions& options = pThis->m_pSearchEngine->GetOptions();
+            CheckDlgButton(hDlg, IDC_CHECK_CASE, options.caseSensitive ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_CHECK_WHOLEWORD, options.wholeWord ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_CHECK_REGEX, options.useRegex ? BST_CHECKED : BST_UNCHECKED);
+        }
+        return TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDC_BTN_FINDNEXT:
+            if (pThis)
+            {
+                wchar_t buffer[1024] = {};
+                GetDlgItemText(hDlg, IDC_SEARCH_TEXT, buffer, 1024);
+                pThis->m_searchText = buffer;
+                pThis->UpdateSearchOptions(hDlg);
+                pThis->DoFindNext();
+            }
+            return TRUE;
+
+        case IDC_BTN_REPLACE:
+            if (pThis)
+            {
+                wchar_t searchBuffer[1024] = {};
+                wchar_t replaceBuffer[1024] = {};
+                GetDlgItemText(hDlg, IDC_SEARCH_TEXT, searchBuffer, 1024);
+                GetDlgItemText(hDlg, IDC_REPLACE_TEXT, replaceBuffer, 1024);
+                pThis->m_searchText = searchBuffer;
+                pThis->m_replaceText = replaceBuffer;
+                pThis->UpdateSearchOptions(hDlg);
+                pThis->DoReplace();
+            }
+            return TRUE;
+
+        case IDC_BTN_REPLACEALL:
+            if (pThis)
+            {
+                wchar_t searchBuffer[1024] = {};
+                wchar_t replaceBuffer[1024] = {};
+                GetDlgItemText(hDlg, IDC_SEARCH_TEXT, searchBuffer, 1024);
+                GetDlgItemText(hDlg, IDC_REPLACE_TEXT, replaceBuffer, 1024);
+                pThis->m_searchText = searchBuffer;
+                pThis->m_replaceText = replaceBuffer;
+                pThis->UpdateSearchOptions(hDlg);
+                pThis->DoReplaceAll();
+            }
+            return TRUE;
+
+        case IDCANCEL:
+            if (pThis)
+            {
+                pThis->m_hReplaceDlg = nullptr;
+            }
+            DestroyWindow(hDlg);
+            return TRUE;
+        }
+        break;
+
+    case WM_CLOSE:
+        if (pThis)
+        {
+            pThis->m_hReplaceDlg = nullptr;
+        }
+        DestroyWindow(hDlg);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+void CMainWindow::DoFindNext()
+{
+    if (m_searchText.empty() || !m_pSearchEngine || !m_pDocument)
+    {
+        return;
+    }
+
+    m_pSearchEngine->SetPattern(m_searchText);
+
+    // 現在のカーソル位置から検索開始
+    TextPosition startPos(0, 0);
+    if (m_pEditController && !m_pEditController->GetCursors().empty())
+    {
+        startPos = m_pEditController->GetCursors()[0];
+        // 選択がある場合は選択終了位置から検索
+        if (m_pEditController->HasSelection())
+        {
+            TextPosition selStart, selEnd;
+            m_pEditController->GetSelection(selStart, selEnd);
+            startPos = selEnd;
+        }
+    }
+
+    SearchResult result;
+    if (m_pSearchEngine->Find(m_pDocument.get(), m_searchText, startPos, result))
+    {
+        NavigateToSearchResult(result);
+    }
+    else
+    {
+        MessageBox(m_hwnd, L"検索文字列が見つかりませんでした。", L"検索", MB_OK | MB_ICONINFORMATION);
+    }
+}
+
+void CMainWindow::DoFindPrevious()
+{
+    if (m_searchText.empty() || !m_pSearchEngine || !m_pDocument)
+    {
+        return;
+    }
+
+    m_pSearchEngine->SetPattern(m_searchText);
+
+    SearchResult result;
+    if (m_pSearchEngine->FindPrevious(m_pDocument.get(), result))
+    {
+        NavigateToSearchResult(result);
+    }
+    else
+    {
+        MessageBox(m_hwnd, L"検索文字列が見つかりませんでした。", L"検索", MB_OK | MB_ICONINFORMATION);
+    }
+}
+
+void CMainWindow::DoReplace()
+{
+    if (m_searchText.empty() || !m_pSearchEngine || !m_pDocument || !m_pEditController)
+    {
+        return;
+    }
+
+    // 現在選択されているテキストが検索文字列と一致するか確認
+    if (m_pEditController->HasSelection())
+    {
+        std::wstring selectedText = m_pEditController->GetSelectedText(m_pDocument.get());
+
+        // 大文字小文字の区別オプションに応じて比較
+        const SearchOptions& options = m_pSearchEngine->GetOptions();
+        bool match = false;
+        if (options.caseSensitive)
+        {
+            match = (selectedText == m_searchText);
+        }
+        else
+        {
+            // 大文字小文字を無視して比較
+            std::wstring selLower = selectedText;
+            std::wstring searchLower = m_searchText;
+            std::transform(selLower.begin(), selLower.end(), selLower.begin(), ::towlower);
+            std::transform(searchLower.begin(), searchLower.end(), searchLower.begin(), ::towlower);
+            match = (selLower == searchLower);
+        }
+
+        if (match)
+        {
+            // 選択部分を置換
+            TextPosition selStart, selEnd;
+            m_pEditController->GetSelection(selStart, selEnd);
+            SearchResult result(selStart, selEnd, selectedText);
+            m_pSearchEngine->Replace(m_pDocument.get(), result, m_replaceText);
+            m_isModified = true;
+            InvalidateRect(m_hwnd, NULL, FALSE);
+            UpdateWindowTitle();
+        }
+    }
+
+    // 次の検索結果に移動
+    DoFindNext();
+}
+
+void CMainWindow::DoReplaceAll()
+{
+    if (m_searchText.empty() || !m_pSearchEngine || !m_pDocument)
+    {
+        return;
+    }
+
+    m_pSearchEngine->SetPattern(m_searchText);
+
+    int count = m_pSearchEngine->ReplaceAll(m_pDocument.get(), m_searchText, m_replaceText);
+
+    if (count > 0)
+    {
+        m_isModified = true;
+        InvalidateRect(m_hwnd, NULL, TRUE);
+        UpdateWindowTitle();
+    }
+
+    wchar_t msg[256];
+    swprintf_s(msg, L"%d 件を置換しました。", count);
+    MessageBox(m_hwnd, msg, L"置換", MB_OK | MB_ICONINFORMATION);
+}
+
+void CMainWindow::UpdateSearchOptions(HWND hDlg)
+{
+    if (!m_pSearchEngine)
+    {
+        return;
+    }
+
+    SearchOptions options;
+    options.caseSensitive = (IsDlgButtonChecked(hDlg, IDC_CHECK_CASE) == BST_CHECKED);
+    options.wholeWord = (IsDlgButtonChecked(hDlg, IDC_CHECK_WHOLEWORD) == BST_CHECKED);
+    options.useRegex = (IsDlgButtonChecked(hDlg, IDC_CHECK_REGEX) == BST_CHECKED);
+    options.wrapAround = true;
+
+    m_pSearchEngine->SetOptions(options);
+}
+
+void CMainWindow::NavigateToSearchResult(const SearchResult& result)
+{
+    if (!m_pEditController || !m_pRenderer)
+    {
+        return;
+    }
+
+    // カーソルを検索結果の開始位置に移動し、選択状態にする
+    m_pEditController->ClearCursors();
+    m_pEditController->BeginSelectionAtPosition(result.start, false);
+    m_pEditController->UpdateSelectionToPosition(result.end);
+
+    // 検索結果が見えるようにスクロール
+    m_pRenderer->EnsurePositionVisible(result.start, m_pDocument.get());
+
+    InvalidateRect(m_hwnd, NULL, FALSE);
 }
 
 void CMainWindow::OnHelpContents()
 {
-    MessageBox(m_hwnd, 
+    MessageBox(m_hwnd,
         L"Awedit ヘルプ\n\n"
         L"ショートカットキー:\n"
         L"Ctrl+N: 新規作成\n"
@@ -759,6 +1147,8 @@ void CMainWindow::OnHelpContents()
         L"Ctrl+S: 保存\n"
         L"Ctrl+F: 検索\n"
         L"Ctrl+H: 置換\n"
+        L"F3: 次を検索\n"
+        L"Shift+F3: 前を検索\n"
         L"Ctrl+Z: 元に戻す\n"
         L"Ctrl+Y: やり直し\n"
         L"Ctrl+A: すべて選択\n"

@@ -95,6 +95,14 @@ void CKeyboardHandler::InitializeDefaultShortcuts(CMainWindow* pMainWindow)
         pMainWindow->OnSearchReplace();
     });
 
+    RegisterShortcut(KeyCombination(VK_F3), [pMainWindow]() {
+        pMainWindow->OnSearchFindNext();
+    });
+
+    RegisterShortcut(KeyCombination(VK_F3, false, true), [pMainWindow]() {
+        pMainWindow->OnSearchFindPrevious();
+    });
+
     // ヘルプ
     RegisterShortcut(KeyCombination(VK_F1), [pMainWindow]() {
         pMainWindow->OnHelpContents();

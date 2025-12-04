@@ -37,4 +37,21 @@
 #define ID_VIEW_FONTSIZE_18             5004
 #define ID_VIEW_FONTSIZE_20             5005
 
+// ダイアログ
+#define IDD_SEARCH_DIALOG               6001
+#define IDD_REPLACE_DIALOG              6002
+
+// 検索ダイアログコントロール
+#define IDC_SEARCH_TEXT                 6101
+#define IDC_REPLACE_TEXT                6102
+#define IDC_CHECK_CASE                  6103
+#define IDC_CHECK_WHOLEWORD             6104
+#define IDC_CHECK_REGEX                 6105
+#define IDC_BTN_FINDNEXT                6106
+#define IDC_BTN_FINDPREV                6107
+#define IDC_BTN_REPLACE                 6108
+#define IDC_BTN_REPLACEALL              6109
+#define IDC_STATIC_SEARCHLABEL          6110
+#define IDC_STATIC_REPLACELABEL         6111
+
 #endif // RESOURCE_H

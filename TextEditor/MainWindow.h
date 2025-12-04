@@ -52,10 +52,22 @@ private:
     void OnEditSelectAll();
     void OnSearchFind();
     void OnSearchReplace();
+    void OnSearchFindNext();
+    void OnSearchFindPrevious();
     void OnHelpAbout();
     void OnHelpContents();
     void UpdateFontSizeMenuCheck(UINT id);
     void UpdateWindowTitle();
+
+    // 検索ダイアログ関連
+    static INT_PTR CALLBACK SearchDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+    static INT_PTR CALLBACK ReplaceDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+    void DoFindNext();
+    void DoFindPrevious();
+    void DoReplace();
+    void DoReplaceAll();
+    void UpdateSearchOptions(HWND hDlg);
+    void NavigateToSearchResult(const SearchResult& result);
 
     HWND m_hwnd;
     HINSTANCE m_hInstance;
@@ -74,4 +86,10 @@ private:
     bool m_isRectSelectionMode;
     std::wstring m_imeCompositionString;  // IME入力中の未確定文字列
     CompositionInfo m_imeInfo;            // IME未確定の詳細（ターゲット範囲含む）
+
+    // 検索ダイアログ関連
+    HWND m_hSearchDlg;    // 検索ダイアログのハンドル
+    HWND m_hReplaceDlg;   // 置換ダイアログのハンドル
+    std::wstring m_searchText;     // 検索文字列
+    std::wstring m_replaceText;    // 置換文字列
 };

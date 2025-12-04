@@ -37,6 +37,9 @@ public:
     TextPosition ScreenToTextPosition(int x, int y, CTextDocument* pDocument);
     POINT TextPositionToScreen(const TextPosition& pos, CTextDocument* pDocument);
 
+    // スクロール制御
+    void EnsurePositionVisible(const TextPosition& pos, CTextDocument* pDocument);
+
 private:
     void CreateDeviceResources();
     void DiscardDeviceResources();

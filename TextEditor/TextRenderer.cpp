@@ -763,3 +763,47 @@ IDWriteTextLayout* CTextRenderer::CreateTextLayoutForLine(const std::wstring& te
     return layout;
 }
 
+void CTextRenderer::EnsurePositionVisible(const TextPosition& pos, CTextDocument* pDocument)
+{
+    if (!pDocument)
+    {
+        return;
+    }
+
+    // 指定位置のスクリーン座標を取得
+    POINT screenPos = TextPositionToScreen(pos, pDocument);
+
+    // 垂直方向のスクロール調整
+    // 位置が画面上部より上にある場合
+    if (screenPos.y < 0)
+    {
+        m_scrollOffsetY += screenPos.y - static_cast<int>(m_lineHeight);
+        if (m_scrollOffsetY < 0)
+        {
+            m_scrollOffsetY = 0;
+        }
+    }
+    // 位置が画面下部より下にある場合
+    else if (screenPos.y + static_cast<int>(m_lineHeight) > m_viewportHeight)
+    {
+        m_scrollOffsetY += screenPos.y + static_cast<int>(m_lineHeight) - m_viewportHeight + static_cast<int>(m_lineHeight);
+    }
+
+    // 水平方向のスクロール調整
+    constexpr float kLeftPadding = 5.0f;
+    // 位置が画面左端より左にある場合
+    if (screenPos.x < static_cast<int>(kLeftPadding))
+    {
+        m_scrollOffsetX += screenPos.x - static_cast<int>(kLeftPadding);
+        if (m_scrollOffsetX < 0)
+        {
+            m_scrollOffsetX = 0;
+        }
+    }
+    // 位置が画面右端より右にある場合
+    else if (screenPos.x > m_viewportWidth - 20)
+    {
+        m_scrollOffsetX += screenPos.x - m_viewportWidth + 50;
+    }
+}
+

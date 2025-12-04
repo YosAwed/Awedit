@@ -807,3 +807,31 @@ void CTextRenderer::EnsurePositionVisible(const TextPosition& pos, CTextDocument
     }
 }
 
+void CTextRenderer::SetScrollPosition(int lineNumber)
+{
+    // 行番号からピクセルオフセットに変換
+    m_scrollOffsetY = static_cast<int>(lineNumber * m_lineHeight);
+    if (m_scrollOffsetY < 0)
+    {
+        m_scrollOffsetY = 0;
+    }
+}
+
+int CTextRenderer::GetScrollPositionInLines() const
+{
+    if (m_lineHeight <= 0.0f)
+    {
+        return 0;
+    }
+    return static_cast<int>(m_scrollOffsetY / m_lineHeight);
+}
+
+int CTextRenderer::GetVisibleLineCount() const
+{
+    if (m_lineHeight <= 0.0f || m_viewportHeight <= 0)
+    {
+        return 1;
+    }
+    return static_cast<int>(m_viewportHeight / m_lineHeight);
+}
+

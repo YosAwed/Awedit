@@ -51,12 +51,12 @@ bool CMainWindow::Create(HINSTANCE hInstance, int nCmdShow)
         return false;
     }
 
-    // ウィンドウの作成
+    // ウィンドウの作成（垂直スクロールバー付き）
     m_hwnd = CreateWindowEx(
         WS_EX_ACCEPTFILES,
         CLASS_NAME,
         L"Awedit",
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_VSCROLL,
         CW_USEDEFAULT, CW_USEDEFAULT,
         1024, 768,
         NULL,
@@ -150,6 +150,10 @@ LRESULT CMainWindow::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
         OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
         return 0;
 
+    case WM_VSCROLL:
+        OnVScroll(wParam);
+        return 0;
+
     case WM_DROPFILES:
     {
         HDROP hDrop = (HDROP)wParam;
@@ -158,7 +162,10 @@ LRESULT CMainWindow::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             m_pDocument->LoadFromFile(filePath);
             m_currentFilePath = filePath;
+            m_isModified = false;
+            UpdateScrollBar();
             InvalidateRect(m_hwnd, NULL, TRUE);
+            UpdateWindowTitle();
         }
         DragFinish(hDrop);
         return 0;
@@ -236,6 +243,9 @@ void CMainWindow::OnCreate()
 
     // 初期タイトル更新
     UpdateWindowTitle();
+
+    // スクロールバーの初期化
+    UpdateScrollBar();
 }
 
 void CMainWindow::OnDestroy()
@@ -248,6 +258,7 @@ void CMainWindow::OnSize(int width, int height)
     if (m_pRenderer)
     {
         m_pRenderer->Resize(width, height);
+        UpdateScrollBar();
     }
 }
 
@@ -571,8 +582,94 @@ void CMainWindow::OnMouseWheel(int delta)
     if (m_pRenderer)
     {
         m_pRenderer->Scroll(delta);
+        UpdateScrollBar();
         InvalidateRect(m_hwnd, NULL, FALSE);
     }
+}
+
+void CMainWindow::OnVScroll(WPARAM wParam)
+{
+    if (!m_pRenderer || !m_pDocument)
+    {
+        return;
+    }
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_ALL;
+    GetScrollInfo(m_hwnd, SB_VERT, &si);
+
+    int oldPos = si.nPos;
+
+    switch (LOWORD(wParam))
+    {
+    case SB_TOP:
+        si.nPos = si.nMin;
+        break;
+    case SB_BOTTOM:
+        si.nPos = si.nMax;
+        break;
+    case SB_LINEUP:
+        si.nPos -= 1;
+        break;
+    case SB_LINEDOWN:
+        si.nPos += 1;
+        break;
+    case SB_PAGEUP:
+        si.nPos -= si.nPage;
+        break;
+    case SB_PAGEDOWN:
+        si.nPos += si.nPage;
+        break;
+    case SB_THUMBTRACK:
+    case SB_THUMBPOSITION:
+        si.nPos = si.nTrackPos;
+        break;
+    }
+
+    // 範囲を制限
+    si.nPos = std::max(si.nMin, std::min(si.nPos, si.nMax - static_cast<int>(si.nPage) + 1));
+
+    if (si.nPos != oldPos)
+    {
+        // スクロール位置をピクセルに変換してレンダラーに設定
+        m_pRenderer->SetScrollPosition(si.nPos);
+
+        // スクロールバーの位置を更新
+        si.fMask = SIF_POS;
+        SetScrollInfo(m_hwnd, SB_VERT, &si, TRUE);
+
+        InvalidateRect(m_hwnd, NULL, FALSE);
+    }
+}
+
+void CMainWindow::UpdateScrollBar()
+{
+    if (!m_pRenderer || !m_pDocument)
+    {
+        return;
+    }
+
+    // ドキュメントの総行数を取得
+    int totalLines = static_cast<int>(m_pDocument->GetLineCount());
+    if (totalLines == 0) totalLines = 1;
+
+    // ビューポートに表示できる行数を取得
+    int visibleLines = m_pRenderer->GetVisibleLineCount();
+    if (visibleLines <= 0) visibleLines = 1;
+
+    // 現在のスクロール位置を行数として取得
+    int currentLine = m_pRenderer->GetScrollPositionInLines();
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin = 0;
+    si.nMax = totalLines - 1;
+    si.nPage = visibleLines;
+    si.nPos = currentLine;
+
+    SetScrollInfo(m_hwnd, SB_VERT, &si, TRUE);
 }
 
 void CMainWindow::OnFileNew()
@@ -582,6 +679,7 @@ void CMainWindow::OnFileNew()
         m_pDocument->Clear();
         m_currentFilePath.clear();
         m_isModified = false;
+        UpdateScrollBar();
         InvalidateRect(m_hwnd, NULL, TRUE);
         UpdateWindowTitle();
     }
@@ -606,6 +704,7 @@ void CMainWindow::OnFileOpen()
         {
             m_currentFilePath = fileName;
             m_isModified = false;
+            UpdateScrollBar();
             InvalidateRect(m_hwnd, NULL, TRUE);
             UpdateWindowTitle();
         }
@@ -1133,6 +1232,9 @@ void CMainWindow::NavigateToSearchResult(const SearchResult& result)
 
     // 検索結果が見えるようにスクロール
     m_pRenderer->EnsurePositionVisible(result.start, m_pDocument.get());
+
+    // スクロールバーを更新
+    UpdateScrollBar();
 
     InvalidateRect(m_hwnd, NULL, FALSE);
 }

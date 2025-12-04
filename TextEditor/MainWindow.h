@@ -36,8 +36,10 @@ private:
     void OnLButtonDown(int x, int y, WPARAM wParam);
     void OnLButtonUp(int x, int y);
     void OnMouseWheel(int delta);
+    void OnVScroll(WPARAM wParam);
     void OnImeComposition(LPARAM lParam);
     void UpdateImePosition();
+    void UpdateScrollBar();
 
     // コマンドハンドラ
     void OnFileNew();

@@ -39,6 +39,9 @@ public:
 
     // スクロール制御
     void EnsurePositionVisible(const TextPosition& pos, CTextDocument* pDocument);
+    void SetScrollPosition(int lineNumber);
+    int GetScrollPositionInLines() const;
+    int GetVisibleLineCount() const;
 
 private:
     void CreateDeviceResources();

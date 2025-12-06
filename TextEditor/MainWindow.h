@@ -52,10 +52,20 @@ private:
     void OnEditSelectAll();
     void OnSearchFind();
     void OnSearchReplace();
+    void OnSearchFindNext(bool searchDown);
     void OnHelpAbout();
     void OnHelpContents();
     void UpdateFontSizeMenuCheck(UINT id);
     void UpdateWindowTitle();
+    void InitializeSearchDialog();
+    void HandleFindReplaceMessage(LPFINDREPLACE pFindReplace);
+    bool PerformSearch(const std::wstring& pattern, bool searchDown);
+    bool ReplaceCurrentSelection(const std::wstring& replacement);
+    int ReplaceAllOccurrences(const std::wstring& pattern, const std::wstring& replacement);
+    void HighlightSearchResult(const SearchResult& result);
+    TextPosition GetSearchStartPosition(bool searchDown) const;
+    TextPosition CalculateEndPosition(const TextPosition& start, const std::wstring& text) const;
+    void ResetSearchState();
 
     HWND m_hwnd;
     HINSTANCE m_hInstance;
@@ -74,4 +84,15 @@ private:
     bool m_isRectSelectionMode;
     std::wstring m_imeCompositionString;  // IME入力中の未確定文字列
     CompositionInfo m_imeInfo;            // IME未確定の詳細（ターゲット範囲含む）
+
+    // 検索状態
+    HWND m_hFindReplaceDlg;
+    FINDREPLACE m_findReplaceData;
+    wchar_t m_findWhat[256];
+    wchar_t m_replaceWith[256];
+    std::wstring m_lastSearchPattern;
+    SearchResult m_lastSearchResult;
+    SearchOptions m_searchOptions;
+    bool m_hasLastSearchResult;
+    UINT m_findReplaceMsg;
 };

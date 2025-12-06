@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <vector>
 #include "TextDocument.h"
+#include "UndoManager.h"
 
 // 選択範囲を表す構造体
 struct Selection
@@ -44,10 +45,10 @@ public:
     std::wstring GetSelectedText(CTextDocument* pDocument) const;
 
     // 編集操作
-    void InsertChar(CTextDocument* pDocument, wchar_t ch);
-    void InsertText(CTextDocument* pDocument, const std::wstring& text);
-    void DeleteSelection(CTextDocument* pDocument);
-    void DeleteChar(CTextDocument* pDocument, bool forward);
+    void InsertChar(CTextDocument* pDocument, wchar_t ch, CUndoManager* pUndoManager = nullptr);
+    void InsertText(CTextDocument* pDocument, const std::wstring& text, CUndoManager* pUndoManager = nullptr);
+    void DeleteSelection(CTextDocument* pDocument, CUndoManager* pUndoManager = nullptr);
+    void DeleteChar(CTextDocument* pDocument, bool forward, CUndoManager* pUndoManager = nullptr);
 
     // 移動操作
     void MoveCursor(int dx, int dy, CTextDocument* pDocument);

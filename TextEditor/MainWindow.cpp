@@ -8,6 +8,7 @@
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cwchar>
 
 #pragma comment(lib, "imm32.lib")
 
@@ -18,7 +19,13 @@ CMainWindow::CMainWindow()
     , m_hInstance(nullptr)
     , m_isModified(false)
     , m_isRectSelectionMode(false)
+    , m_hFindReplaceDlg(nullptr)
+    , m_hasLastSearchResult(false)
+    , m_findReplaceMsg(0)
 {
+    ZeroMemory(&m_findReplaceData, sizeof(m_findReplaceData));
+    m_findWhat[0] = L'\0';
+    m_replaceWith[0] = L'\0';
 }
 
 CMainWindow::~CMainWindow()
@@ -101,6 +108,12 @@ LRESULT CALLBACK CMainWindow::WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LP
 
 LRESULT CMainWindow::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    if (m_findReplaceMsg != 0 && uMsg == m_findReplaceMsg)
+    {
+        HandleFindReplaceMessage(reinterpret_cast<LPFINDREPLACE>(lParam));
+        return 0;
+    }
+
     switch (uMsg)
     {
     case WM_CREATE:
@@ -180,13 +193,13 @@ LRESULT CMainWindow::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return DefWindowProc(m_hwnd, uMsg, wParam, lParam);
 
-case WM_IME_ENDCOMPOSITION:
-    // 入力が終了したら未確定文字列をクリア
-    m_imeCompositionString.clear();
-    m_imeInfo.text.clear();
-    m_imeInfo.targetStart = m_imeInfo.targetLength = 0;
-    InvalidateRect(m_hwnd, NULL, FALSE);
-    return DefWindowProc(m_hwnd, uMsg, wParam, lParam);
+    case WM_IME_ENDCOMPOSITION:
+        // 入力が終了したら未確定文字列をクリア
+        m_imeCompositionString.clear();
+        m_imeInfo.text.clear();
+        m_imeInfo.targetStart = m_imeInfo.targetLength = 0;
+        InvalidateRect(m_hwnd, NULL, FALSE);
+        return DefWindowProc(m_hwnd, uMsg, wParam, lParam);
 
     default:
         return DefWindowProc(m_hwnd, uMsg, wParam, lParam);
@@ -205,6 +218,9 @@ void CMainWindow::OnCreate()
 
     // レンダラーの初期化
     m_pRenderer->Initialize(m_hwnd);
+
+    // 検索ダイアログの初期化
+    InitializeSearchDialog();
 
     // Add View menu (Font Size) dynamically
     HMENU hMenu = GetMenu(m_hwnd);
@@ -305,6 +321,12 @@ void CMainWindow::OnCommand(WPARAM wParam)
         break;
     case ID_SEARCH_REPLACE:
         OnSearchReplace();
+        break;
+    case ID_SEARCH_FINDNEXT:
+        OnSearchFindNext(true);
+        break;
+    case ID_SEARCH_FINDPREVIOUS:
+        OnSearchFindNext(false);
         break;
     case ID_HELP_CONTENTS:
         OnHelpContents();
@@ -454,21 +476,21 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
             break;
 
         case VK_BACK:
-            m_pEditController->DeleteChar(m_pDocument.get(), false);
+            m_pEditController->DeleteChar(m_pDocument.get(), false, m_pUndoManager.get());
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
             break;
 
         case VK_DELETE:
-            m_pEditController->DeleteChar(m_pDocument.get(), true);
+            m_pEditController->DeleteChar(m_pDocument.get(), true, m_pUndoManager.get());
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
             break;
 
         case VK_RETURN:
-            m_pEditController->InsertChar(m_pDocument.get(), L'\n');
+            m_pEditController->InsertChar(m_pDocument.get(), L'\n', m_pUndoManager.get());
             m_isModified = true;
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
@@ -490,7 +512,7 @@ void CMainWindow::OnChar(WPARAM wParam)
             return;
         }
 
-        m_pEditController->InsertChar(m_pDocument.get(), ch);
+        m_pEditController->InsertChar(m_pDocument.get(), ch, m_pUndoManager.get());
         m_isModified = true;
         InvalidateRect(m_hwnd, NULL, FALSE);
         UpdateWindowTitle();
@@ -571,6 +593,11 @@ void CMainWindow::OnFileNew()
     if (m_pDocument)
     {
         m_pDocument->Clear();
+        ResetSearchState();
+        if (m_pUndoManager)
+        {
+            m_pUndoManager->Clear();
+        }
         m_currentFilePath.clear();
         m_isModified = false;
         InvalidateRect(m_hwnd, NULL, TRUE);
@@ -596,6 +623,11 @@ void CMainWindow::OnFileOpen()
         if (m_pDocument->LoadFromFile(fileName))
         {
             m_currentFilePath = fileName;
+            ResetSearchState();
+            if (m_pUndoManager)
+            {
+                m_pUndoManager->Clear();
+            }
             m_isModified = false;
             InvalidateRect(m_hwnd, NULL, TRUE);
             UpdateWindowTitle();
@@ -661,6 +693,8 @@ void CMainWindow::OnEditUndo()
     {
         m_pUndoManager->Undo(m_pDocument.get());
         InvalidateRect(m_hwnd, NULL, TRUE);
+        m_isModified = true;
+        UpdateWindowTitle();
     }
 }
 
@@ -670,6 +704,8 @@ void CMainWindow::OnEditRedo()
     {
         m_pUndoManager->Redo(m_pDocument.get());
         InvalidateRect(m_hwnd, NULL, TRUE);
+        m_isModified = true;
+        UpdateWindowTitle();
     }
 }
 
@@ -678,7 +714,7 @@ void CMainWindow::OnEditCut()
     OnEditCopy();
     if (m_pEditController && m_pDocument)
     {
-        m_pEditController->DeleteSelection(m_pDocument.get());
+        m_pEditController->DeleteSelection(m_pDocument.get(), m_pUndoManager.get());
         m_isModified = true;
         InvalidateRect(m_hwnd, NULL, TRUE);
         UpdateWindowTitle();
@@ -719,7 +755,7 @@ void CMainWindow::OnEditPaste()
             wchar_t* pText = static_cast<wchar_t*>(GlobalLock(hData));
             if (pText && m_pEditController && m_pDocument)
             {
-                m_pEditController->InsertText(m_pDocument.get(), pText);
+                m_pEditController->InsertText(m_pDocument.get(), pText, m_pUndoManager.get());
                 m_isModified = true;
                 InvalidateRect(m_hwnd, NULL, TRUE);
                 UpdateWindowTitle();
@@ -741,12 +777,330 @@ void CMainWindow::OnEditSelectAll()
 
 void CMainWindow::OnSearchFind()
 {
-    MessageBox(m_hwnd, L"検索機能は実装中です。", L"情報", MB_OK | MB_ICONINFORMATION);
+    if (!m_pDocument)
+    {
+        return;
+    }
+
+    if (m_hFindReplaceDlg && IsWindow(m_hFindReplaceDlg))
+    {
+        SetActiveWindow(m_hFindReplaceDlg);
+        return;
+    }
+
+    m_findReplaceData.Flags |= FR_DOWN;
+    m_hFindReplaceDlg = FindText(&m_findReplaceData);
 }
 
 void CMainWindow::OnSearchReplace()
 {
-    MessageBox(m_hwnd, L"置換機能は実装中です。", L"情報", MB_OK | MB_ICONINFORMATION);
+    if (!m_pDocument)
+    {
+        return;
+    }
+
+    if (m_hFindReplaceDlg && IsWindow(m_hFindReplaceDlg))
+    {
+        SetActiveWindow(m_hFindReplaceDlg);
+        return;
+    }
+
+    m_hFindReplaceDlg = ReplaceText(&m_findReplaceData);
+}
+
+void CMainWindow::OnSearchFindNext(bool searchDown)
+{
+    if (!m_pSearchEngine || !m_pDocument)
+    {
+        return;
+    }
+
+    if (m_lastSearchPattern.empty() && m_findWhat[0] != L'\0')
+    {
+        m_lastSearchPattern = m_findWhat;
+    }
+
+    if (m_lastSearchPattern.empty())
+    {
+        OnSearchFind();
+        return;
+    }
+
+    m_pSearchEngine->SetOptions(m_searchOptions);
+    m_pSearchEngine->SetPattern(m_lastSearchPattern);
+    PerformSearch(m_lastSearchPattern, searchDown);
+}
+
+void CMainWindow::InitializeSearchDialog()
+{
+    ZeroMemory(&m_findReplaceData, sizeof(m_findReplaceData));
+    m_findReplaceData.lStructSize = sizeof(FINDREPLACE);
+    m_findReplaceData.hwndOwner = m_hwnd;
+    m_findReplaceData.Flags = FR_DOWN;
+    m_findReplaceData.lpstrFindWhat = m_findWhat;
+    m_findReplaceData.lpstrReplaceWith = m_replaceWith;
+    m_findReplaceData.wFindWhatLen = static_cast<WORD>(sizeof(m_findWhat) / sizeof(wchar_t));
+    m_findReplaceData.wReplaceWithLen = static_cast<WORD>(sizeof(m_replaceWith) / sizeof(wchar_t));
+    m_findReplaceMsg = RegisterWindowMessage(FINDMSGSTRING);
+}
+
+void CMainWindow::HandleFindReplaceMessage(LPFINDREPLACE pFindReplace)
+{
+    if (!pFindReplace)
+    {
+        return;
+    }
+
+    if (pFindReplace->Flags & FR_DIALOGTERM)
+    {
+        m_hFindReplaceDlg = nullptr;
+        return;
+    }
+
+    m_searchOptions.caseSensitive = (pFindReplace->Flags & FR_MATCHCASE) != 0;
+    m_searchOptions.wholeWord = (pFindReplace->Flags & FR_WHOLEWORD) != 0;
+    m_searchOptions.useRegex = false;
+    m_searchOptions.wrapAround = true;
+
+    std::wstring pattern = pFindReplace->lpstrFindWhat ? pFindReplace->lpstrFindWhat : L"";
+    bool searchDown = (pFindReplace->Flags & FR_DOWN) != 0;
+
+    if (pattern.empty())
+    {
+        return;
+    }
+
+    m_lastSearchPattern = pattern;
+    m_pSearchEngine->SetOptions(m_searchOptions);
+    m_pSearchEngine->SetPattern(pattern);
+
+    if (pFindReplace->Flags & FR_FINDNEXT)
+    {
+        PerformSearch(pattern, searchDown);
+    }
+    else if (pFindReplace->Flags & FR_REPLACE)
+    {
+        std::wstring replacement = pFindReplace->lpstrReplaceWith ? pFindReplace->lpstrReplaceWith : L"";
+        if (!ReplaceCurrentSelection(replacement))
+        {
+            if (PerformSearch(pattern, searchDown))
+            {
+                ReplaceCurrentSelection(replacement);
+            }
+            else
+            {
+                return;
+            }
+        }
+        PerformSearch(pattern, searchDown);
+    }
+    else if (pFindReplace->Flags & FR_REPLACEALL)
+    {
+        std::wstring replacement = pFindReplace->lpstrReplaceWith ? pFindReplace->lpstrReplaceWith : L"";
+        int replaced = ReplaceAllOccurrences(pattern, replacement);
+        wchar_t buffer[128];
+        swprintf_s(buffer, L"%d 件置換しました。", replaced);
+        MessageBox(m_hwnd, buffer, L"置換", MB_OK | MB_ICONINFORMATION);
+    }
+}
+
+bool CMainWindow::PerformSearch(const std::wstring& pattern, bool searchDown)
+{
+    if (!m_pSearchEngine || !m_pDocument || pattern.empty())
+    {
+        return false;
+    }
+
+    if (pattern != m_lastSearchPattern)
+    {
+        m_lastSearchPattern = pattern;
+        m_hasLastSearchResult = false;
+    }
+
+    m_pSearchEngine->SetOptions(m_searchOptions);
+    m_pSearchEngine->SetPattern(pattern);
+
+    SearchResult result;
+    bool found = false;
+
+    if (m_hasLastSearchResult)
+    {
+        found = searchDown ? m_pSearchEngine->FindNext(m_pDocument.get(), result)
+                           : m_pSearchEngine->FindPrevious(m_pDocument.get(), result);
+    }
+
+    if (!found)
+    {
+        TextPosition startPos = GetSearchStartPosition(searchDown);
+        found = m_pSearchEngine->Find(m_pDocument.get(), pattern, startPos, result);
+    }
+
+    if (found)
+    {
+        m_lastSearchResult = result;
+        m_hasLastSearchResult = true;
+        HighlightSearchResult(result);
+    }
+    else
+    {
+        m_hasLastSearchResult = false;
+        MessageBeep(MB_ICONINFORMATION);
+    }
+
+    return found;
+}
+
+bool CMainWindow::ReplaceCurrentSelection(const std::wstring& replacement)
+{
+    if (!m_pSearchEngine || !m_pDocument || !m_hasLastSearchResult)
+    {
+        return false;
+    }
+
+    TextPosition start = m_lastSearchResult.start;
+    TextPosition end = m_lastSearchResult.end;
+
+    if (m_pUndoManager)
+    {
+        m_pUndoManager->ExecuteCommand(std::make_unique<CReplaceTextCommand>(start, end, replacement), m_pDocument.get());
+    }
+    else
+    {
+        m_pSearchEngine->Replace(m_pDocument.get(), m_lastSearchResult, replacement);
+    }
+
+    TextPosition newEnd = CalculateEndPosition(start, replacement);
+    m_lastSearchResult.end = newEnd;
+    m_lastSearchResult.matchedText = replacement;
+    m_hasLastSearchResult = false;
+
+    if (m_pEditController)
+    {
+        m_pEditController->SetCursor(start);
+        m_pEditController->SelectToPosition(newEnd, m_pDocument.get());
+    }
+
+    m_isModified = true;
+    InvalidateRect(m_hwnd, NULL, TRUE);
+    UpdateWindowTitle();
+    return true;
+}
+
+int CMainWindow::ReplaceAllOccurrences(const std::wstring& pattern, const std::wstring& replacement)
+{
+    if (!m_pSearchEngine || !m_pDocument || pattern.empty())
+    {
+        return 0;
+    }
+
+    m_pSearchEngine->SetOptions(m_searchOptions);
+    m_pSearchEngine->SetPattern(pattern);
+
+    std::vector<SearchResult> results = m_pSearchEngine->FindAll(m_pDocument.get(), pattern);
+    int replacedCount = 0;
+
+    for (auto it = results.rbegin(); it != results.rend(); ++it)
+    {
+        if (m_pUndoManager)
+        {
+            m_pUndoManager->ExecuteCommand(std::make_unique<CReplaceTextCommand>(it->start, it->end, replacement), m_pDocument.get());
+        }
+        else
+        {
+            m_pSearchEngine->Replace(m_pDocument.get(), *it, replacement);
+        }
+        replacedCount++;
+    }
+
+    if (replacedCount > 0)
+    {
+        m_isModified = true;
+        InvalidateRect(m_hwnd, NULL, TRUE);
+        UpdateWindowTitle();
+    }
+
+    m_hasLastSearchResult = false;
+    return replacedCount;
+}
+
+void CMainWindow::HighlightSearchResult(const SearchResult& result)
+{
+    if (!m_pEditController || !m_pDocument)
+    {
+        return;
+    }
+
+    TextPosition start = m_pDocument->ClampPosition(result.start);
+    TextPosition end = m_pDocument->ClampPosition(result.end);
+
+    m_pEditController->SetCursor(start);
+    m_pEditController->SelectToPosition(end, m_pDocument.get());
+    InvalidateRect(m_hwnd, NULL, FALSE);
+}
+
+TextPosition CMainWindow::GetSearchStartPosition(bool searchDown) const
+{
+    if (m_pEditController && m_pDocument)
+    {
+        if (m_pEditController->HasSelection())
+        {
+            TextPosition selStart;
+            TextPosition selEnd;
+            m_pEditController->GetSelection(selStart, selEnd);
+            if (selEnd < selStart)
+            {
+                std::swap(selStart, selEnd);
+            }
+            return searchDown ? selEnd : selStart;
+        }
+
+        const auto& cursors = m_pEditController->GetCursors();
+        if (!cursors.empty())
+        {
+            return m_pDocument->ClampPosition(cursors[0]);
+        }
+    }
+
+    return TextPosition(0, 0);
+}
+
+TextPosition CMainWindow::CalculateEndPosition(const TextPosition& start, const std::wstring& text) const
+{
+    TextPosition end = start;
+    size_t lineCount = 0;
+    size_t lastLineLength = 0;
+
+    for (wchar_t ch : text)
+    {
+        if (ch == L'\n')
+        {
+            lineCount++;
+            lastLineLength = 0;
+        }
+        else if (ch != L'\r')
+        {
+            lastLineLength++;
+        }
+    }
+
+    if (lineCount > 0)
+    {
+        end.line += lineCount;
+        end.column = lastLineLength;
+    }
+    else
+    {
+        end.column += text.length();
+    }
+
+    return end;
+}
+
+void CMainWindow::ResetSearchState()
+{
+    m_hasLastSearchResult = false;
+    m_lastSearchPattern.clear();
+    m_lastSearchResult = SearchResult();
 }
 
 void CMainWindow::OnHelpContents()
@@ -845,7 +1199,7 @@ void CMainWindow::OnImeComposition(LPARAM lParam)
             // 確定文字列を挿入
             if (m_pEditController && m_pDocument)
             {
-                m_pEditController->InsertText(m_pDocument.get(), resultStr);
+                m_pEditController->InsertText(m_pDocument.get(), resultStr, m_pUndoManager.get());
                 m_isModified = true;
                 InvalidateRect(m_hwnd, NULL, FALSE);
                 UpdateWindowTitle();

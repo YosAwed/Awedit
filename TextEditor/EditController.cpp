@@ -1,6 +1,7 @@
 // EditController.cpp - 編集コントローラー実装
 #include "EditController.h"
 #include <algorithm>
+#include <memory>
 
 CEditController::CEditController()
     : m_isSelecting(false)
@@ -258,7 +259,7 @@ std::wstring CEditController::GetSelectedText(CTextDocument* pDocument) const
     return result;
 }
 
-void CEditController::InsertChar(CTextDocument* pDocument, wchar_t ch)
+void CEditController::InsertChar(CTextDocument* pDocument, wchar_t ch, CUndoManager* pUndoManager)
 {
     if (!pDocument)
     {
@@ -268,13 +269,21 @@ void CEditController::InsertChar(CTextDocument* pDocument, wchar_t ch)
     // 選択範囲があれば削除
     if (HasSelection())
     {
-        DeleteSelection(pDocument);
+        DeleteSelection(pDocument, pUndoManager);
     }
 
     // 各カーソル位置に文字を挿入
     for (auto& cursor : m_cursors)
     {
-        pDocument->InsertChar(cursor, ch);
+        if (pUndoManager)
+        {
+            std::wstring text(1, ch);
+            pUndoManager->ExecuteCommand(std::make_unique<CInsertTextCommand>(cursor, text), pDocument);
+        }
+        else
+        {
+            pDocument->InsertChar(cursor, ch);
+        }
         
         // カーソル位置を更新
         if (ch == L'\r' || ch == L'\n')
@@ -289,7 +298,7 @@ void CEditController::InsertChar(CTextDocument* pDocument, wchar_t ch)
     }
 }
 
-void CEditController::InsertText(CTextDocument* pDocument, const std::wstring& text)
+void CEditController::InsertText(CTextDocument* pDocument, const std::wstring& text, CUndoManager* pUndoManager)
 {
     if (!pDocument || text.empty())
     {
@@ -299,13 +308,20 @@ void CEditController::InsertText(CTextDocument* pDocument, const std::wstring& t
     // 選択範囲があれば削除
     if (HasSelection())
     {
-        DeleteSelection(pDocument);
+        DeleteSelection(pDocument, pUndoManager);
     }
 
     // 各カーソル位置にテキストを挿入
     for (auto& cursor : m_cursors)
     {
-        pDocument->InsertText(cursor, text);
+        if (pUndoManager)
+        {
+            pUndoManager->ExecuteCommand(std::make_unique<CInsertTextCommand>(cursor, text), pDocument);
+        }
+        else
+        {
+            pDocument->InsertText(cursor, text);
+        }
         
         // カーソル位置を更新（簡易実装）
         size_t newlineCount = 0;
@@ -331,7 +347,7 @@ void CEditController::InsertText(CTextDocument* pDocument, const std::wstring& t
     }
 }
 
-void CEditController::DeleteSelection(CTextDocument* pDocument)
+void CEditController::DeleteSelection(CTextDocument* pDocument, CUndoManager* pUndoManager)
 {
     if (!pDocument || !HasSelection())
     {
@@ -343,7 +359,14 @@ void CEditController::DeleteSelection(CTextDocument* pDocument)
     {
         if (!it->IsEmpty())
         {
-            pDocument->DeleteRange(it->start, it->end);
+            if (pUndoManager)
+            {
+                pUndoManager->ExecuteCommand(std::make_unique<CDeleteTextCommand>(it->start, it->end), pDocument);
+            }
+            else
+            {
+                pDocument->DeleteRange(it->start, it->end);
+            }
         }
     }
 
@@ -360,7 +383,7 @@ void CEditController::DeleteSelection(CTextDocument* pDocument)
     m_selections.clear();
 }
 
-void CEditController::DeleteChar(CTextDocument* pDocument, bool forward)
+void CEditController::DeleteChar(CTextDocument* pDocument, bool forward, CUndoManager* pUndoManager)
 {
     if (!pDocument)
     {
@@ -369,31 +392,73 @@ void CEditController::DeleteChar(CTextDocument* pDocument, bool forward)
 
     if (HasSelection())
     {
-        DeleteSelection(pDocument);
+        DeleteSelection(pDocument, pUndoManager);
         return;
     }
 
     // 各カーソル位置で文字を削除
     for (auto& cursor : m_cursors)
     {
+        TextPosition startPos = cursor;
+        TextPosition endPos = cursor;
+        bool hasTarget = true;
+
         if (forward)
         {
-            pDocument->DeleteChar(cursor);
+            const std::wstring& line = pDocument->GetLine(cursor.line);
+            if (cursor.column < line.length())
+            {
+                endPos.column = cursor.column + 1;
+            }
+            else if (cursor.line < pDocument->GetLineCount() - 1)
+            {
+                endPos.line = cursor.line + 1;
+                endPos.column = 0;
+            }
+            else
+            {
+                hasTarget = false;
+            }
         }
         else
         {
             // Backspace
             if (cursor.column > 0)
             {
-                cursor.column--;
-                pDocument->DeleteChar(cursor);
+                startPos.column = cursor.column - 1;
             }
             else if (cursor.line > 0)
             {
                 size_t prevLineLength = pDocument->GetLine(cursor.line - 1).length();
-                cursor.line--;
-                cursor.column = prevLineLength;
-                pDocument->DeleteChar(cursor);
+                startPos.line = cursor.line - 1;
+                startPos.column = prevLineLength;
+            }
+            else
+            {
+                hasTarget = false;
+            }
+
+            if (hasTarget)
+            {
+                endPos = cursor;
+                cursor = startPos;
+            }
+        }
+
+        if (hasTarget)
+        {
+            if (pUndoManager)
+            {
+                pUndoManager->ExecuteCommand(std::make_unique<CDeleteTextCommand>(startPos, endPos), pDocument);
+            }
+            else
+            {
+                pDocument->DeleteRange(startPos, endPos);
+            }
+
+            if (forward)
+            {
+                cursor = startPos;
             }
         }
     }

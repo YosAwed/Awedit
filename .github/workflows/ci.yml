@@ -10,6 +10,14 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Avoid MSVC structured output pipe issues on hosted runners
+      UseClStructuredOutput: false
+      # Keep temp files in the runner temp folder with sane permissions
+      TEMP: ${{ runner.temp }}
+      TMP: ${{ runner.temp }}
+      # Prevent msbuild node reuse to reduce handle pressure
+      MSBUILDDISABLENODEREUSE: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,10 +26,10 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build Debug x64
-        run: msbuild Awedit.sln /p:Configuration=Debug /p:Platform=x64 /m
+        run: msbuild Awedit.sln /p:Configuration=Debug /p:Platform=x64 /p:UseClStructuredOutput=false /p:CL_MPCount=1 /m:1
 
       - name: Build Release x64
-        run: msbuild Awedit.sln /p:Configuration=Release /p:Platform=x64 /m
+        run: msbuild Awedit.sln /p:Configuration=Release /p:Platform=x64 /p:UseClStructuredOutput=false /p:CL_MPCount=1 /m:1
 
       - name: Upload Debug artifact
         if: always()

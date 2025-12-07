@@ -15,6 +15,7 @@ Release/
 ipch/
 *.opendb
 *.log
+tmp/
 
 # Project specifics
 TextEditor/x64/

@@ -38,6 +38,9 @@ private:
     void OnMouseWheel(int delta);
     void OnImeComposition(LPARAM lParam);
     void UpdateImePosition();
+    void OnVScroll(int scrollCode, int position);
+    void UpdateScrollBars();
+    bool SetVerticalScrollPosition(int position);
 
     // コマンドハンドラ
     void OnFileNew();

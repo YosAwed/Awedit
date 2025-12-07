@@ -1,6 +1,7 @@
 // TextRenderer.cpp - DirectWriteテキストレンダラー実装
 #include "TextRenderer.h"
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 CTextRenderer::CTextRenderer()
@@ -627,6 +628,50 @@ void CTextRenderer::Scroll(int delta)
     {
         m_scrollOffsetY = 0;
     }
+}
+
+SIZE CTextRenderer::CalculateContentSize(CTextDocument* pDocument)
+{
+    SIZE contentSize = { 0,0 };
+    if (!pDocument || !m_pDWriteFactory || !m_pTextFormat)
+    {
+        return contentSize;
+    }
+
+    constexpr float kLeftPadding = 5.0f;
+    float availableWidth = static_cast<float>(m_viewportWidth) - kLeftPadding + static_cast<float>(m_scrollOffsetX);
+    if (availableWidth <= 0.0f) availableWidth = 1.0f;
+
+    float totalHeight = 0.0f;
+    float maxWidth = 0.0f;
+
+    size_t lineCount = pDocument->GetLineCount();
+    for (size_t i = 0; i < lineCount; ++i)
+    {
+        IDWriteTextLayout* pLayout = CreateTextLayoutForLine(pDocument->GetLine(i), availableWidth);
+        if (!pLayout)
+        {
+            continue;
+        }
+        DWRITE_TEXT_METRICS metrics{};
+        if (SUCCEEDED(pLayout->GetMetrics(&metrics)))
+        {
+            totalHeight += metrics.height;
+            maxWidth = std::max(maxWidth, metrics.widthIncludingTrailingWhitespace);
+        }
+        pLayout->Release();
+    }
+
+    // Ensure at least viewport size to avoid zero sized scroll range
+    contentSize.cx = static_cast<LONG>(std::max<double>(std::ceil(maxWidth + kLeftPadding), static_cast<double>(m_viewportWidth)));
+    contentSize.cy = static_cast<LONG>(std::max<double>(std::ceil(totalHeight), static_cast<double>(m_viewportHeight)));
+    return contentSize;
+}
+
+void CTextRenderer::SetScrollOffset(int offsetX, int offsetY)
+{
+    m_scrollOffsetX = std::max(0, offsetX);
+    m_scrollOffsetY = std::max(0, offsetY);
 }
 
 TextPosition CTextRenderer::ScreenToTextPosition(int x, int y, CTextDocument* pDocument)

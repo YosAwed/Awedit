@@ -30,6 +30,11 @@ public:
     void Resize(int width, int height);
     void Render(CTextDocument* pDocument, CEditController* pEditController, const CompositionInfo* pImeInfo = nullptr);
     void Scroll(int delta);
+    SIZE CalculateContentSize(CTextDocument* pDocument);
+    void SetScrollOffset(int offsetX, int offsetY);
+    int GetScrollOffsetY() const { return m_scrollOffsetY; }
+    int GetScrollOffsetX() const { return m_scrollOffsetX; }
+    float GetLineHeight() const { return m_lineHeight; }
     void SetFontSize(float size);
     float GetFontSize() const { return m_fontSize; }
 

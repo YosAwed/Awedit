@@ -60,7 +60,7 @@ bool CMainWindow::Create(HINSTANCE hInstance, int nCmdShow)
         WS_EX_ACCEPTFILES,
         CLASS_NAME,
         L"Awedit",
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_VSCROLL,
         CW_USEDEFAULT, CW_USEDEFAULT,
         1024, 768,
         NULL,
@@ -156,6 +156,10 @@ LRESULT CMainWindow::HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam)
         OnLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
         return 0;
 
+    case WM_VSCROLL:
+        OnVScroll(LOWORD(wParam), HIWORD(wParam));
+        return 0;
+
     case WM_MOUSEWHEEL:
         OnMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam));
         return 0;
@@ -234,7 +238,16 @@ void CMainWindow::OnCreate()
             AppendMenu(hView, MF_STRING, ID_VIEW_FONTSIZE_16, L"Font Size 16pt");
             AppendMenu(hView, MF_STRING, ID_VIEW_FONTSIZE_18, L"Font Size 18pt");
             AppendMenu(hView, MF_STRING, ID_VIEW_FONTSIZE_20, L"Font Size 20pt");
-            AppendMenu(hMenu, MF_POPUP, reinterpret_cast<UINT_PTR>(hView), L"View(&V)");
+
+            // Insert "表示" menu just before Help to keep Help at the far right
+            int count = GetMenuItemCount(hMenu);
+            int insertPos = (count > 0) ? (count - 1) : count; // before last (Help) if exists
+            if (!InsertMenu(hMenu, insertPos, MF_BYPOSITION | MF_POPUP, reinterpret_cast<UINT_PTR>(hView), L"表示(&V)"))
+            {
+                // Fallback: append if insertion fails
+                AppendMenu(hMenu, MF_POPUP, reinterpret_cast<UINT_PTR>(hView), L"表示(&V)");
+            }
+
             float fs = m_pRenderer->GetFontSize();
             UINT id = ID_VIEW_FONTSIZE_14;
             if (fs <= 12.0f) id = ID_VIEW_FONTSIZE_12;
@@ -249,6 +262,7 @@ void CMainWindow::OnCreate()
 
     // 初期タイトル更新
     UpdateWindowTitle();
+    UpdateScrollBars();
 }
 
 void CMainWindow::OnDestroy()
@@ -262,6 +276,7 @@ void CMainWindow::OnSize(int width, int height)
     {
         m_pRenderer->Resize(width, height);
     }
+    UpdateScrollBars();
 }
 
 void CMainWindow::OnPaint()
@@ -352,6 +367,7 @@ void CMainWindow::OnCommand(WPARAM wParam)
         if (m_pRenderer)
         {
             m_pRenderer->SetFontSize(newSize);
+            UpdateScrollBars();
         }
         HMENU hMenu = GetMenu(m_hwnd);
         if (hMenu)
@@ -478,6 +494,7 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
         case VK_BACK:
             m_pEditController->DeleteChar(m_pDocument.get(), false, m_pUndoManager.get());
             m_isModified = true;
+            UpdateScrollBars();
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
             break;
@@ -485,6 +502,7 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
         case VK_DELETE:
             m_pEditController->DeleteChar(m_pDocument.get(), true, m_pUndoManager.get());
             m_isModified = true;
+            UpdateScrollBars();
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
             break;
@@ -492,6 +510,7 @@ void CMainWindow::OnKeyDown(WPARAM wParam, LPARAM lParam)
         case VK_RETURN:
             m_pEditController->InsertChar(m_pDocument.get(), L'\n', m_pUndoManager.get());
             m_isModified = true;
+            UpdateScrollBars();
             InvalidateRect(m_hwnd, NULL, FALSE);
             UpdateWindowTitle();
             break;
@@ -514,6 +533,7 @@ void CMainWindow::OnChar(WPARAM wParam)
 
         m_pEditController->InsertChar(m_pDocument.get(), ch, m_pUndoManager.get());
         m_isModified = true;
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, FALSE);
         UpdateWindowTitle();
     }
@@ -581,11 +601,160 @@ void CMainWindow::OnLButtonUp(int x, int y)
 
 void CMainWindow::OnMouseWheel(int delta)
 {
-    if (m_pRenderer)
+    if (!m_pRenderer || !m_pDocument)
     {
-        m_pRenderer->Scroll(delta);
+        return;
+    }
+
+    UINT scrollLines = 0;
+    if (!SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &scrollLines, 0) || scrollLines == 0)
+    {
+        scrollLines = 3;
+    }
+
+    int scrollPixels = 0;
+    if (scrollLines == WHEEL_PAGESCROLL)
+    {
+        SCROLLINFO si = {};
+        si.cbSize = sizeof(si);
+        si.fMask = SIF_PAGE;
+        if (GetScrollInfo(m_hwnd, SB_VERT, &si))
+        {
+            scrollPixels = (delta > 0 ? -1 : 1) * static_cast<int>(si.nPage);
+        }
+    }
+    else
+    {
+        float deltaLines = (static_cast<float>(delta) / WHEEL_DELTA) * static_cast<float>(scrollLines);
+        scrollPixels = static_cast<int>(std::round(deltaLines * m_pRenderer->GetLineHeight()));
+        scrollPixels = -scrollPixels; // wheel up moves content down
+    }
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_POS;
+    if (GetScrollInfo(m_hwnd, SB_VERT, &si))
+    {
+        int newPos = static_cast<int>(si.nPos) + scrollPixels;
+        SetVerticalScrollPosition(newPos);
+    }
+}
+
+void CMainWindow::OnVScroll(int scrollCode, int position)
+{
+    if (!m_pRenderer || !m_pDocument)
+    {
+        return;
+    }
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_ALL;
+    if (!GetScrollInfo(m_hwnd, SB_VERT, &si))
+    {
+        return;
+    }
+
+    int yPos = static_cast<int>(si.nPos);
+    switch (scrollCode)
+    {
+    case SB_TOP:
+        yPos = si.nMin;
+        break;
+    case SB_BOTTOM:
+        yPos = si.nMax;
+        break;
+    case SB_LINEUP:
+        yPos -= static_cast<int>(std::round(m_pRenderer->GetLineHeight()));
+        break;
+    case SB_LINEDOWN:
+        yPos += static_cast<int>(std::round(m_pRenderer->GetLineHeight()));
+        break;
+    case SB_PAGEUP:
+        yPos -= static_cast<int>(si.nPage);
+        break;
+    case SB_PAGEDOWN:
+        yPos += static_cast<int>(si.nPage);
+        break;
+    case SB_THUMBTRACK:
+    case SB_THUMBPOSITION:
+        yPos = si.nTrackPos;
+        break;
+    default:
+        return;
+    }
+
+    SetVerticalScrollPosition(yPos);
+}
+
+void CMainWindow::UpdateScrollBars()
+{
+    if (!m_pRenderer || !m_pDocument)
+    {
+        return;
+    }
+
+    SIZE contentSize = m_pRenderer->CalculateContentSize(m_pDocument.get());
+
+    RECT rc{};
+    GetClientRect(m_hwnd, &rc);
+    int clientWidth = rc.right - rc.left;
+    int clientHeight = rc.bottom - rc.top;
+    (void)clientWidth; // horizontal scroll not used yet
+
+    bool needVScroll = contentSize.cy > clientHeight;
+    ShowScrollBar(m_hwnd, SB_VERT, needVScroll);
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin = 0;
+    si.nMax = std::max<LONG>(contentSize.cy - 1, 0);
+    UINT page = static_cast<UINT>(std::max(clientHeight, 1));
+    si.nPage = page;
+    int maxPos = std::max(0, si.nMax - static_cast<int>(si.nPage) + 1);
+    int curPos = std::min(m_pRenderer->GetScrollOffsetY(), maxPos);
+    curPos = std::max(0, curPos);
+    si.nPos = curPos;
+    SetScrollInfo(m_hwnd, SB_VERT, &si, TRUE);
+
+    m_pRenderer->SetScrollOffset(m_pRenderer->GetScrollOffsetX(), curPos);
+}
+
+bool CMainWindow::SetVerticalScrollPosition(int position)
+{
+    if (!m_pRenderer)
+    {
+        return false;
+    }
+
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_ALL;
+    if (!GetScrollInfo(m_hwnd, SB_VERT, &si))
+    {
+        return false;
+    }
+
+    int maxPos = std::max(0, si.nMax - static_cast<int>(si.nPage) + 1);
+    int clamped = std::max(static_cast<int>(si.nMin), std::min(position, maxPos));
+    bool changed = clamped != static_cast<int>(si.nPos);
+
+    if (changed)
+    {
+        si.fMask = SIF_POS;
+        si.nPos = clamped;
+        SetScrollInfo(m_hwnd, SB_VERT, &si, TRUE);
+        m_pRenderer->SetScrollOffset(m_pRenderer->GetScrollOffsetX(), clamped);
+        UpdateImePosition();
         InvalidateRect(m_hwnd, NULL, FALSE);
     }
+    else
+    {
+        m_pRenderer->SetScrollOffset(m_pRenderer->GetScrollOffsetX(), clamped);
+    }
+
+    return changed;
 }
 
 void CMainWindow::OnFileNew()
@@ -600,6 +769,7 @@ void CMainWindow::OnFileNew()
         }
         m_currentFilePath.clear();
         m_isModified = false;
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, TRUE);
         UpdateWindowTitle();
     }
@@ -629,6 +799,7 @@ void CMainWindow::OnFileOpen()
                 m_pUndoManager->Clear();
             }
             m_isModified = false;
+            UpdateScrollBars();
             InvalidateRect(m_hwnd, NULL, TRUE);
             UpdateWindowTitle();
         }
@@ -692,6 +863,7 @@ void CMainWindow::OnEditUndo()
     if (m_pUndoManager && m_pUndoManager->CanUndo())
     {
         m_pUndoManager->Undo(m_pDocument.get());
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, TRUE);
         m_isModified = true;
         UpdateWindowTitle();
@@ -703,6 +875,7 @@ void CMainWindow::OnEditRedo()
     if (m_pUndoManager && m_pUndoManager->CanRedo())
     {
         m_pUndoManager->Redo(m_pDocument.get());
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, TRUE);
         m_isModified = true;
         UpdateWindowTitle();
@@ -716,6 +889,7 @@ void CMainWindow::OnEditCut()
     {
         m_pEditController->DeleteSelection(m_pDocument.get(), m_pUndoManager.get());
         m_isModified = true;
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, TRUE);
         UpdateWindowTitle();
     }
@@ -757,6 +931,7 @@ void CMainWindow::OnEditPaste()
             {
                 m_pEditController->InsertText(m_pDocument.get(), pText, m_pUndoManager.get());
                 m_isModified = true;
+                UpdateScrollBars();
                 InvalidateRect(m_hwnd, NULL, TRUE);
                 UpdateWindowTitle();
             }
@@ -981,6 +1156,7 @@ bool CMainWindow::ReplaceCurrentSelection(const std::wstring& replacement)
     }
 
     m_isModified = true;
+    UpdateScrollBars();
     InvalidateRect(m_hwnd, NULL, TRUE);
     UpdateWindowTitle();
     return true;
@@ -1015,6 +1191,7 @@ int CMainWindow::ReplaceAllOccurrences(const std::wstring& pattern, const std::w
     if (replacedCount > 0)
     {
         m_isModified = true;
+        UpdateScrollBars();
         InvalidateRect(m_hwnd, NULL, TRUE);
         UpdateWindowTitle();
     }
@@ -1201,6 +1378,7 @@ void CMainWindow::OnImeComposition(LPARAM lParam)
             {
                 m_pEditController->InsertText(m_pDocument.get(), resultStr, m_pUndoManager.get());
                 m_isModified = true;
+                UpdateScrollBars();
                 InvalidateRect(m_hwnd, NULL, FALSE);
                 UpdateWindowTitle();
             }
